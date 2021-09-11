@@ -13,7 +13,6 @@ metadata {
 		namespace: "dabtailwind-gd", 
 		author: "dbadge"		
     ) {
-        //capability "GarageDoorControl"
         capability "Polling"
         attribute "Status", "string"
         command "childOpen", ["string"]
@@ -21,19 +20,23 @@ metadata {
         command "childRefresh", ["string"]
     }
 }
+
 def installed() {
     log.info "Clearing schedule for Polling interval"
     unschedule()
     init()
 }
+
 def uninstalled() {
     getChildDevices().each { deleteChildDevice("${it.deviceNetworkId}") }
 }
+
 def updated() {
     log.info "Clearing schedule for Polling interval"
     unschedule()
     init()
 }
+
 def init() {
     log.info "Scheduling Polling interval for ${settings.interval} second(s)..."    
     addChildren()
@@ -49,7 +52,8 @@ void addChildren(){
             if(debugEnable) log.debug  "delete ${it.deviceNetworkId[-1]}"
             deleteChildDevice("${it.deviceNetworkId}")
             }
-    }   
+    } 
+    //loop through up to doorCount to create children
     for (int c = 0; c < dc; c++) {
         def d = c + 1
         if(debugEnable) log.debug ("${IP} : Door ${d}")
@@ -65,11 +69,9 @@ void addChildren(){
     }
 }
 
-void updateChildren() {
-    getChildDevices().each { 
-        it.setIP(ip)
-        it.setDoorID(it.deviceNetworkId)
-    }
+def poll() {
+    checkStatus()
+   // syncChildren() 
 }
 
 def open(Integer doorNumber) {
@@ -83,8 +85,7 @@ def open(Integer doorNumber) {
     }
 }
 
-def close(Integer doorNumber) {
-   
+def close(Integer doorNumber) {   
     def postParams = [uri: "http://${IP}/cmd", body : "-${doorNumber}"]     
         httpPost(postParams) { resp ->
             if(debugEnable) log.debug "Close Response: ${resp.data}"
@@ -95,17 +96,13 @@ def close(Integer doorNumber) {
     }
 }
 
-def poll() {
-    checkStatus()
-    syncChildren() 
-}
 
-void syncChildren(){
+/*void syncChildren(){
+    //this does nothing ATM.
     getChildDevices().each {
         if(debugEnable) log.debug "${it}  ${it.latestValue("door")}"        
     }
-}
-
+}*/
 
 def checkStatus() {
     httpGet(uri: "http://${ IP }/status")
@@ -116,6 +113,7 @@ def checkStatus() {
 	}
 
 }
+
 void doorStatus(status){
     
      def statusCodes=[
@@ -130,17 +128,12 @@ void doorStatus(status){
 ] 
     if(debugEnable) log.debug "Setting Attributes"
     sendEvent(name: "Status", value: status)
-    for(int i =0; i<doorCount.toInteger(); i++){
+    for(int i =0; i < doorCount.toInteger(); i++){
         retVal = statusCodes[status][i]
         dStatus = getDoorOpenClose(retVal)
-        if(debugEnable) log.debug "Real door ${i+1} is ${retVal} ${dStatus}"
-        //sendEvent(name: "d${i+1}", value: dStatus)
+        if(debugEnable) log.debug "Real door ${i+1} is ${retVal} ${dStatus}"        
         setChildStatus(i+1, dStatus)
     }   
-}
-
-def singleDoorStatus(dNum){
-    
 }
 
 void childClose(String dni){
@@ -148,7 +141,7 @@ void childClose(String dni){
     def cd = getChildDevice(dni)
     def door = dni[-1].toInteger()
     close(door)
-    //based on timing, my door averages about 25-30 seconds to close, tailwind beeps for a while, then the door closes.
+    //based on timing, one of my doors averages about 25-30 seconds to close. Tailwind beeps for a while, then the door closes.
     runIn(25000,poll)
 }
 
@@ -161,24 +154,15 @@ void childOpen(String dni){
     runIn(3000, poll)
 }
 
-void childRefresh(String dni) {
-	
-}
-
 void setChildStatus(dNum, status){
-    try{
-        def cd = getChildDevice("${IP} : Door ${dNum}")        
-        if(cd.latestValue("door") == status){
-            //if(debugEnable) log.debug "Match"
-        }
-        else{
-            if(debugEnable) log.debug "MisMatch"
-            //TODO:make them match
-            cd.sendEvent(name:"door", value:"${status}")
-        }    
+    def cd = getChildDevice("${IP} : Door ${dNum}")        
+    if(cd.latestValue("door") == status){
+        if(debugEnable) log.debug "Child device ${IP} : Door ${dNum} Matches real door"
     }
-    finally{}
-    
+    else{
+        if(debugEnable) log.debug "Child device ${IP} : Door ${dNum} DOESN'T match real door, update child to match"
+        cd.sendEvent(name:"door", value:"${status}")
+    }    
 }
 
 def getDoorOpenClose(curStatus)
