@@ -3,9 +3,9 @@ preferences {
     input name: "IP", type: "text", title: "TW Device IP", required: "True"
     //input name: "token", type: "password", title: "Access Token", required: "True"
     input name: "doorCount", type: "text", title: "Number of Doors", required: "True"
-    input name: "doorNumber", type: "enum", title: "Current Door", required: "True", options: ["1", "2", "4"]
+    input name: "doorNumber", type: "enum", title: "Active Door", required: "True", options: ["1", "2", "4"] //TODO: replace with children devices.
     input name: "debugEnable", type: "bool", title: "Enable debug logging?", required: "True"
-    input name: "interval", type: "enum", title: "Polling interval", required: "True", options: ["1", "5" , "10", "15", "30"]
+    input name: "interval", type: "number", title: "Polling interval (seconds)", required: "True"
 }
 
 metadata {
@@ -27,36 +27,60 @@ def installed() {
     unschedule()
     init()
 }
+def uninstalled() {
+    getChildDevices().each { deleteChildDevice("${it.deviceNetworkId}") }
+}
 def updated() {
     log.info "Clearing schedule for Polling interval"
     unschedule()
     init()
 }
 def init() {
-    log.info "Scheduling Polling interval for ${settings.interval} minute(s)..."
-    switch(interval.toInteger()){
-        case 1:
-            runEvery1Minute(poll)
-            log.info "Scheduled ${settings.interval} minute(s)..."
-            break
-        case 5:
-            runEvery5Minutes(poll)
-            log.info "Scheduled ${settings.interval} minute(s)..."
-            break
-        case 10:
-            runEvery10Minutes(poll)
-            log.info "Scheduled ${settings.interval} minute(s)..."
-            break
-        case 15:
-            runEvery15Minutes(poll)
-            log.info "Scheduled ${settings.interval} minute(s)..."
-            break
-        case 30:
-            runEvery30Minutes(poll)
-            log.info "Scheduled ${settings.interval} minute(s)..."
-            break
-    }
+    log.info "Scheduling Polling interval for ${settings.interval} second(s)..."
+    
+    //getChildDevices().each { deleteChildDevice("${it.deviceNetworkId}") }
+    addChildren()
+    schedule("0/${settings.interval} * * ? * * *", poll)
     poll()
+}
+
+void addChildren(){
+    int dc = doorCount.toString().toInteger()
+    getChildDevices().each { 
+        
+        if(it.deviceNetworkId[-1].toInteger() > dc){
+            log.debug  "delete ${it.deviceNetworkId[-1]}"
+            deleteChildDevice("${it.deviceNetworkId}")
+            }
+    }   
+    for (int c = 0; c < dc; c++) {
+        def d = c + 1
+        log.debug ("${IP} : Door ${d}")
+        def cd = getChildDevice("${IP} : Door ${d}")
+        if(!cd) {
+            cd = addChildDevice("hubitat","Virtual Garage Door Controller","${IP} : Door ${d}", [label: "${IP} : Door ${d}", name: "${IP} : Door ${d}", isComponent: true])
+            if(cd && debugEnable){
+                log.debug "Child device ${cd.displayName} was created"
+            }else if (!cd){
+                log.error "Could not create child device"
+            }
+        }
+    }
+    
+        
+    /*(if(door1 && currentchild==null) {
+        currentchild = addChildDevice("Tailwind Garagedoor", "1", [isComponent: true, name: "Garage Door 1", label: "Garage Door 1"])
+    } else if (!door1 && currentchild!=null) {
+        deleteChildDevice("1")
+    }
+    */
+}
+
+void updateChildren() {
+    getChildDevices().each { 
+        it.setIP(ip)
+        it.setDoorID(it.deviceNetworkId)
+    }
 }
 
 def open() {
@@ -84,7 +108,14 @@ def close() {
 
 def poll() {
     checkStatus()
+    syncChildren() 
 }
+
+void syncChildren(){
+    def cd = getChildDevice("${IP} : Door 1")
+    if(debugEnable) log.debug "${cd}  ${cd.currentContact}"        
+}
+
 
 def checkStatus() {
     httpGet(uri: "http://${ IP }/status")
@@ -110,19 +141,35 @@ void doorStatus(status){
     if(debugEnable) log.debug "Setting Attributes"
     sendEvent(name: "Status", value: status)
     int retVal = statusCodes[status][doorNumber.toInteger() - 1] 
-    if(debugEnable) log.debug "door ${doorNumber} is ${retVal}"
+    if(debugEnable) log.debug "Door ${doorNumber} is ${retVal}"
     sendEvent(name: "door", value: getDoorOpenClose(retVal))
-    retVal = statusCodes[status][0]
-    if(debugEnable) log.debug "door 1 is ${retVal}"
-    sendEvent(name: "d1", value: getDoorOpenClose(retVal))
-    retVal = statusCodes[status][1]
-    if(debugEnable) log.debug "door 2 is ${retVal}"
-    sendEvent(name: "d2", value: getDoorOpenClose(retVal))
-    retVal = statusCodes[status][2]
-    if(debugEnable) log.debug "door 3 is ${retVal}"
-    sendEvent(name: "d3", value: getDoorOpenClose(retVal))   
+    for(int i =0; i<doorCount.toInteger(); i++){
+        retVal = statusCodes[status][i]
+        dStatus = getDoorOpenClose(retVal)
+        if(debugEnable) log.debug "Real door ${i+1} is ${retVal} ${dStatus}"
+        sendEvent(name: "d${i+1}", value: dStatus)
+        setChildStatus(i+1, dStatus)
+    }   
+}
+def singleDoorStatus(dNum){
     
 }
+
+void setChildStatus(dNum, status){
+    try{
+        def cd = getChildDevice("${IP} : Door ${dNum}")
+        if(cd.currentContact == status){
+            //if(debugEnable) log.debug "Match"
+        }
+        else{
+            if(debugEnable) log.debug "MisMatch"
+            cd.toggle
+        }    
+    }
+    finally{}
+    
+}
+
 def getDoorOpenClose(curStatus)
 {
     if(curStatus < 0){
