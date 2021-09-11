@@ -1,6 +1,6 @@
 
 preferences {
-    input name: "IP", type: "string", title: "TW Device IP", required: "True"
+    input name: "IP", type: "string", title: "Tailwind Controller IP", required: "True"
     //input name: "token", type: "password", title: "Access Token", required: "True"
     input name: "doorCount", type: "integer", title: "Number of Doors", required: "True"
     input name: "debugEnable", type: "bool", title: "Enable debug logging?", required: "True"
