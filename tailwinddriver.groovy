@@ -1,11 +1,10 @@
 
 preferences {
-    input name: "IP", type: "text", title: "TW Device IP", required: "True"
+    input name: "IP", type: "string", title: "TW Device IP", required: "True"
     //input name: "token", type: "password", title: "Access Token", required: "True"
-    input name: "doorCount", type: "text", title: "Number of Doors", required: "True"
-    input name: "doorNumber", type: "enum", title: "Active Door", required: "True", options: ["1", "2", "4"] //TODO: replace with children devices.
+    input name: "doorCount", type: "integer", title: "Number of Doors", required: "True"
     input name: "debugEnable", type: "bool", title: "Enable debug logging?", required: "True"
-    input name: "interval", type: "number", title: "Polling interval (seconds)", required: "True"
+    input name: "interval", type: "integer", title: "Polling interval (seconds)", required: "True"
 }
 
 metadata {
@@ -14,12 +13,12 @@ metadata {
 		namespace: "dabtailwind-gd", 
 		author: "dbadge"		
     ) {
-        capability "GarageDoorControl"
+        //capability "GarageDoorControl"
         capability "Polling"
         attribute "Status", "string"
-        attribute "d1", "string"
-        attribute "d2", "string"
-        attribute "d3", "string"
+        command "childOpen", ["string"]
+        command "childClose", ["string"]
+        command "childRefresh", ["string"]
     }
 }
 def installed() {
@@ -56,7 +55,7 @@ void addChildren(){
         if(debugEnable) log.debug ("${IP} : Door ${d}")
         def cd = getChildDevice("${IP} : Door ${d}")
         if(!cd) {
-            cd = addChildDevice("hubitat","Virtual Garage Door Controller","${IP} : Door ${d}", [label: "${IP} : Door ${d}", name: "${IP} : Door ${d}", isComponent: true])
+            cd = addChildDevice("dabtailwind-gd","Tailwind Garage Door Child Device","${IP} : Door ${d}", [label: "${IP} : Door ${d}", name: "${IP} : Door ${d}", isComponent: true])
             if(cd && debugEnable){
                 log.debug "Child device ${cd.displayName} was created"
             }else if (!cd){
@@ -73,7 +72,7 @@ void updateChildren() {
     }
 }
 
-def open() {
+def open(Integer doorNumber) {
     def postParams = [uri: "http://${IP}/cmd", body : "${doorNumber}"]     
         httpPost(postParams) { resp ->
            if(debugEnable) log.debug "Open Response: ${resp.data}"     
@@ -84,7 +83,7 @@ def open() {
     }
 }
 
-def close() {
+def close(Integer doorNumber) {
    
     def postParams = [uri: "http://${IP}/cmd", body : "-${doorNumber}"]     
         httpPost(postParams) { resp ->
@@ -102,8 +101,9 @@ def poll() {
 }
 
 void syncChildren(){
-    def cd = getChildDevice("${IP} : Door 1")
-    if(debugEnable) log.debug "${cd}  ${cd.currentContact}"        
+    getChildDevices().each {
+        if(debugEnable) log.debug "${it}  ${it.latestValue("door")}"        
+    }
 }
 
 
@@ -130,30 +130,51 @@ void doorStatus(status){
 ] 
     if(debugEnable) log.debug "Setting Attributes"
     sendEvent(name: "Status", value: status)
-    int retVal = statusCodes[status][doorNumber.toInteger() - 1] 
-    if(debugEnable) log.debug "Door ${doorNumber} is ${retVal}"
-    sendEvent(name: "door", value: getDoorOpenClose(retVal))
     for(int i =0; i<doorCount.toInteger(); i++){
         retVal = statusCodes[status][i]
         dStatus = getDoorOpenClose(retVal)
         if(debugEnable) log.debug "Real door ${i+1} is ${retVal} ${dStatus}"
-        sendEvent(name: "d${i+1}", value: dStatus)
+        //sendEvent(name: "d${i+1}", value: dStatus)
         setChildStatus(i+1, dStatus)
     }   
 }
+
 def singleDoorStatus(dNum){
     
 }
 
+void childClose(String dni){
+    if(debugEnable) log.debug "Attempting to close door ${dni}"
+    def cd = getChildDevice(dni)
+    def door = dni[-1].toInteger()
+    close(door)
+    //based on timing, my door averages about 25-30 seconds to close, tailwind beeps for a while, then the door closes.
+    runIn(25000,poll)
+}
+
+void childOpen(String dni){
+    if(debugEnable) log.debug "Attempting to open door ${dni}"
+    def cd = getChildDevice(dni)
+    def door = dni[-1].toInteger()
+    open(door)
+    //depends on the door sensor placement, most doors are near instant
+    runIn(3000, poll)
+}
+
+void childRefresh(String dni) {
+	
+}
+
 void setChildStatus(dNum, status){
     try{
-        def cd = getChildDevice("${IP} : Door ${dNum}")
-        if(cd.currentContact == status){
+        def cd = getChildDevice("${IP} : Door ${dNum}")        
+        if(cd.latestValue("door") == status){
             //if(debugEnable) log.debug "Match"
         }
         else{
             if(debugEnable) log.debug "MisMatch"
-            cd.toggle
+            //TODO:make them match
+            cd.sendEvent(name:"door", value:"${status}")
         }    
     }
     finally{}
