@@ -36,9 +36,7 @@ def updated() {
     init()
 }
 def init() {
-    log.info "Scheduling Polling interval for ${settings.interval} second(s)..."
-    
-    //getChildDevices().each { deleteChildDevice("${it.deviceNetworkId}") }
+    log.info "Scheduling Polling interval for ${settings.interval} second(s)..."    
     addChildren()
     schedule("0/${settings.interval} * * ? * * *", poll)
     poll()
@@ -46,16 +44,16 @@ def init() {
 
 void addChildren(){
     int dc = doorCount.toString().toInteger()
-    getChildDevices().each { 
-        
+    //Cleanup any children that are no longer needed due to doorCount change
+    getChildDevices().each {         
         if(it.deviceNetworkId[-1].toInteger() > dc){
-            log.debug  "delete ${it.deviceNetworkId[-1]}"
+            if(debugEnable) log.debug  "delete ${it.deviceNetworkId[-1]}"
             deleteChildDevice("${it.deviceNetworkId}")
             }
     }   
     for (int c = 0; c < dc; c++) {
         def d = c + 1
-        log.debug ("${IP} : Door ${d}")
+        if(debugEnable) log.debug ("${IP} : Door ${d}")
         def cd = getChildDevice("${IP} : Door ${d}")
         if(!cd) {
             cd = addChildDevice("hubitat","Virtual Garage Door Controller","${IP} : Door ${d}", [label: "${IP} : Door ${d}", name: "${IP} : Door ${d}", isComponent: true])
@@ -66,14 +64,6 @@ void addChildren(){
             }
         }
     }
-    
-        
-    /*(if(door1 && currentchild==null) {
-        currentchild = addChildDevice("Tailwind Garagedoor", "1", [isComponent: true, name: "Garage Door 1", label: "Garage Door 1"])
-    } else if (!door1 && currentchild!=null) {
-        deleteChildDevice("1")
-    }
-    */
 }
 
 void updateChildren() {
