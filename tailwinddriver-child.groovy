@@ -1,4 +1,3 @@
-
 metadata {
     definition (
         name: "Tailwind Garage Door Child Device", 
@@ -22,5 +21,5 @@ void open(){
 }
 
 void refresh() {
-	parent.childRefresh(device.deviceNetworkId)
+     parent.childRefresh(device.deviceNetworkId)
 }
