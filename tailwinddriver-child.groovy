@@ -5,7 +5,6 @@ metadata {
 		author: "dbadge"		
     ) {
         capability "GarageDoorControl"
-        capability "Refresh"
         attribute "Status", "string"
         command "open"
         command "close"
@@ -20,6 +19,3 @@ void open(){
      parent.childOpen(device.deviceNetworkId)   
 }
 
-void refresh() {
-     parent.childRefresh(device.deviceNetworkId)
-}
