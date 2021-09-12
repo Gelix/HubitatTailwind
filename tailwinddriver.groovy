@@ -1,6 +1,7 @@
 
 preferences {
     input name: "IP", type: "string", title: "Tailwind Controller IP", required: "True"
+    input name: "cName", type: "string", title: "Tailwind Controller Name", required: "True"
     //input name: "token", type: "password", title: "Access Token", required: "True"
     input name: "doorCount", type: "integer", title: "Number of Doors", required: "True"
     input name: "debugEnable", type: "bool", title: "Enable debug logging?", required: "True"
@@ -22,16 +23,23 @@ metadata {
 }
 
 def installed() {
-    log.info "Clearing schedule for Polling interval"
-    unschedule()
-    init()
+    //enable debugEnable for 30 seconds, then disable it
+    def debugEnabled = debugEnable
+    device.updateSetting("debugEnable",[type:"bool",value:true])
+    device.updateSetting("doorCount",[type:"integer",value:"0"])
+    device.updateSetting("interval",[type:"integer",value:"15"])      
+    //log.info "Clearing schedule for Polling interval"
+    //unschedule()
+    //init()
+    pauseExecution(30000)
+    device.updateSetting("debugEnable",[type:"bool",value:debugEnabled])
 }
 
 def uninstalled() {
     getChildDevices().each { deleteChildDevice("${it.deviceNetworkId}") }
 }
 
-def updated() {
+def updated() {    
     log.info "Clearing schedule for Polling interval"
     unschedule()
     init()
@@ -41,14 +49,15 @@ def init() {
     log.info "Scheduling Polling interval for ${settings.interval} second(s)..."    
     addChildren()
     schedule("0/${settings.interval} * * ? * * *", poll)
-    poll()
+    poll()    
 }
 
 void addChildren(){
     int dc = doorCount.toString().toInteger()
     //Cleanup any children that are no longer needed due to doorCount change
-    getChildDevices().each {         
-        if(it.deviceNetworkId[-1].toInteger() > dc){
+    getChildDevices().each {       
+        if(debugEnable) log.debug it.deviceNetworkId[0..(it.deviceNetworkId.length() - 9)]
+        if(it.deviceNetworkId[-1].toInteger() > dc || it.deviceNetworkId[0..(it.deviceNetworkId.length() - 9)] != cName){
             if(debugEnable) log.debug  "delete ${it.deviceNetworkId[-1]}"
             deleteChildDevice("${it.deviceNetworkId}")
             }
@@ -56,10 +65,10 @@ void addChildren(){
     //loop through up to doorCount to create children
     for (int c = 0; c < dc; c++) {
         def d = c + 1
-        if(debugEnable) log.debug ("${IP} : Door ${d}")
-        def cd = getChildDevice("${IP} : Door ${d}")
+        if(debugEnable) log.debug ("${cName} : Door ${d}")
+        def cd = getChildDevice("${cName} : Door ${d}")
         if(!cd) {
-            cd = addChildDevice("dabtailwind-gd","Tailwind Garage Door Child Device","${IP} : Door ${d}", [label: "${IP} : Door ${d}", name: "${IP} : Door ${d}", isComponent: true])
+            cd = addChildDevice("dabtailwind-gd","Tailwind Garage Door Child Device","${cName} : Door ${d}", [label: "${cName} : Door ${d}", name: "${cName} : Door ${d}", isComponent: true])
             if(cd && debugEnable){
                 log.debug "Child device ${cd.displayName} was created"
             }else if (!cd){
@@ -155,12 +164,12 @@ void childOpen(String dni){
 }
 
 void setChildStatus(dNum, status){
-    def cd = getChildDevice("${IP} : Door ${dNum}")        
+    def cd = getChildDevice("${cName} : Door ${dNum}")        
     if(cd.latestValue("door") == status){
-        if(debugEnable) log.debug "Child device ${IP} : Door ${dNum} Matches real door"
+        if(debugEnable) log.debug "Child device ${cName} : Door ${dNum} Matches real door"
     }
     else{
-        if(debugEnable) log.debug "Child device ${IP} : Door ${dNum} DOESN'T match real door, update child to match"
+        if(debugEnable) log.debug "Child device ${cName} : Door ${dNum} DOESN'T match real door, update child to match"
         cd.sendEvent(name:"door", value:"${status}")
     }    
 }
