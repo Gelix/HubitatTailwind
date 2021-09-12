@@ -83,12 +83,12 @@ void addChildren(){
         if(debugEnable) log.debug "label ${cd.label}=${cName} : ${dn}"
         if(cd.label != "${cName} : ${dn}")
         {
-            log.debug "label mismatch"
+            log.debug "label mismatch ${cd.label}=${cName} : ${dn}"
             cd.label = "${cName} : ${dn}"
         }
-        if(cd.label != "${cName} : ${dn}")
+        if(cd.name != "${d}")
         {
-            log.debug "name mismatch"
+            log.debug "name mismatch ${cd.name}=${d}"
             cd.name = "${d}"
         }
     }
