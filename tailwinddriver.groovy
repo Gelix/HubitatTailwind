@@ -3,9 +3,12 @@ preferences {
     input name: "IP", type: "string", title: "Tailwind Controller IP", required: "True"
     input name: "cName", type: "string", title: "Tailwind Controller Name", required: "True"
     //input name: "token", type: "password", title: "Access Token", required: "True"
-    input name: "doorCount", type: "integer", title: "Number of Doors", required: "True"
+    input name: "doorCount", type: "number", title: "Number of Doors", required: "True", range: "0..3", defaultValue : 1
     input name: "debugEnable", type: "bool", title: "Enable debug logging?", required: "True"
-    input name: "interval", type: "integer", title: "Polling interval (seconds)", required: "True"
+    input name: "interval", type: "number", title: "Polling interval (seconds)", required: "True", range: "1..59", defaultValue : 30
+    input name: "d1Name", type: "string", title: "Door 1 Name", required: "false", defaultValue : "Door 1"
+    input name: "d2Name", type: "string", title: "Door 2 Name", required: "false", defaultValue : "Door 2"
+    input name: "d3Name", type: "string", title: "Door 3 Name", required: "false", defaultValue : "Door 3"
 }
 
 metadata {
@@ -22,17 +25,12 @@ metadata {
     }
 }
 
+
+
 def installed() {
-    //enable debugEnable for 30 seconds, then disable it
-    def debugEnabled = debugEnable
-    device.updateSetting("debugEnable",[type:"bool",value:true])
-    device.updateSetting("doorCount",[type:"integer",value:"0"])
-    device.updateSetting("interval",[type:"integer",value:"15"])      
     //log.info "Clearing schedule for Polling interval"
     //unschedule()
-    //init()
-    pauseExecution(30000)
-    device.updateSetting("debugEnable",[type:"bool",value:debugEnabled])
+    //init()    
 }
 
 def uninstalled() {
@@ -54,104 +52,130 @@ def init() {
 
 void addChildren(){
     int dc = doorCount.toString().toInteger()
-    //Cleanup any children that are no longer needed due to doorCount change
+    //Cleanup any children that are no longer needed due to doorCount change or name mismatch
     getChildDevices().each {       
-        if(debugEnable) log.debug it.deviceNetworkId[0..(it.deviceNetworkId.length() - 9)]
-        if(it.deviceNetworkId[-1].toInteger() > dc || it.deviceNetworkId[0..(it.deviceNetworkId.length() - 9)] != cName){
-            if(debugEnable) log.debug  "delete ${it.deviceNetworkId[-1]}"
+        spl = it.deviceNetworkId.split(':')       
+        if(spl[0] != cName  || spl[1].toInteger() > dc){
+            if(debugEnable) log.debug  "delete ${it.deviceNetworkId}"
             deleteChildDevice("${it.deviceNetworkId}")
             }
     } 
     //loop through up to doorCount to create children
     for (int c = 0; c < dc; c++) {
         def d = c + 1
-        if(debugEnable) log.debug ("${cName} : Door ${d}")
-        def cd = getChildDevice("${cName} : Door ${d}")
+        def dn=""
+        if (d == 1){dn = d1Name}
+        if (d == 2){dn = d2Name}
+        if (d == 3){dn = d3Name}
+        if(debugEnable) log.debug ("${cName}:${d}")
+        def cd = getChildDevice("${cName}:${d}")
         if(!cd) {
-            cd = addChildDevice("dabtailwind-gd","Tailwind Garage Door Child Device","${cName} : Door ${d}", [label: "${cName} : Door ${d}", name: "${cName} : Door ${d}", isComponent: true])
+            cd = addChildDevice("dabtailwind-gd","Tailwind Garage Door Child Device","${cName}:${d}", [label: "${cName} : ${dn}", name: "${d}", isComponent: true])
             if(cd && debugEnable){
-                log.debug "Child device ${cd.displayName} was created"
+                log.debug "Child device ${cd.displayName} was created" 
+
             }else if (!cd){
                 log.error "Could not create child device"
             }
         }
+        if(debugEnable) log.debug "deviceNetworkId ${cd.deviceNetworkId}=${cName}:${d}"        
+        if(debugEnable) log.debug "name ${cd.name}=${d}"
+        if(debugEnable) log.debug "label ${cd.label}=${cName} : ${dn}"
+        if(cd.label != "${cName} : ${dn}")
+        {
+            log.debug "label mismatch"
+            cd.label = "${cName} : ${dn}"
+        }
+        if(cd.label != "${cName} : ${dn}")
+        {
+            log.debug "name mismatch"
+            cd.name = "${d}"
+        }
     }
+    
 }
 
 def poll() {
-    checkStatus()
-   // syncChildren() 
+    checkStatus()   
 }
 
 def open(Integer doorNumber) {
     def postParams = [uri: "http://${IP}/cmd", body : "${doorNumber}"]     
-        httpPost(postParams) { resp ->
-           if(debugEnable) log.debug "Open Response: ${resp.data}"     
-            if ("${resp.data}" == "${doorNumber}" )
-            {
-                checkStatus()
-            }
+    httpPost(postParams) { resp ->
+        if(debugEnable) log.debug "Open Response: ${resp.data}"     
+        if ("${resp.data}" == "${doorNumber}" )
+        {
+            Integer s=-2 //checkStatus()
+            
+            while (getDoorOpenClose(getDoorStatus(s,doorNumber)) != "open"){
+                if(debugEnable) log.debug "Current status ${getDoorOpenClose(getDoorStatus(s,doorNumber))}"
+                s = checkStatus()
+                if(debugEnable) log.debug "Current status ${getDoorOpenClose(getDoorStatus(s,doorNumber))}"
+                pauseExecution(1000)
+            }     
+        }
     }
 }
 
 def close(Integer doorNumber) {   
     def postParams = [uri: "http://${IP}/cmd", body : "-${doorNumber}"]     
-        httpPost(postParams) { resp ->
-            if(debugEnable) log.debug "Close Response: ${resp.data}"
-            if ("${resp.data}" == "-${doorNumber}" )
-            {
-                checkStatus()
-            }
+    httpPost(postParams) { resp ->
+        if(debugEnable) log.debug "Close Response: ${resp.data}"
+        if ("${resp.data}" == "-${doorNumber}" )
+        {   
+            Integer s=2 //checkStatus()
+            
+            while (getDoorOpenClose(getDoorStatus(s,doorNumber)) != "closed"){
+                if(debugEnable) log.debug "Current status ${getDoorOpenClose(getDoorStatus(s,doorNumber))}"
+                s = checkStatus()
+                if(debugEnable) log.debug "Current status ${getDoorOpenClose(getDoorStatus(s,doorNumber))}"
+                pauseExecution(1000)
+            }            
+        }
     }
 }
-
-
-/*void syncChildren(){
-    //this does nothing ATM.
-    getChildDevices().each {
-        if(debugEnable) log.debug "${it}  ${it.latestValue("door")}"        
-    }
-}*/
 
 def checkStatus() {
     httpGet(uri: "http://${ IP }/status")
     {resp ->           
-        if(debugEnable) log.debug "Door Status: ${resp.data}"  
-        
+        if(debugEnable) log.debug "Door Status: ${resp.data}"
         doorStatus(resp.data.toInteger())
+        return resp.data.toInteger()
 	}
-
+    
 }
 
 void doorStatus(status){
-    
-     def statusCodes=[
-  [-1, -2, -4],   //0
-  [1, -2, -4],    //1
-  [-1, 2, -4],    //2
-  [1, 2, -4],     //3
-  [-1, -2, 4],    //4
-  [1, -2, 4],     //5
-  [-1, 2, 4],     //6
-  [1, 2, 4]       //7
-] 
     if(debugEnable) log.debug "Setting Attributes"
     sendEvent(name: "Status", value: status)
     for(int i =0; i < doorCount.toInteger(); i++){
-        retVal = statusCodes[status][i]
+        getDoorStatus(status,i)
         dStatus = getDoorOpenClose(retVal)
         if(debugEnable) log.debug "Real door ${i+1} is ${retVal} ${dStatus}"        
         setChildStatus(i+1, dStatus)
     }   
 }
 
+def getDoorStatus(Integer status, Integer door){
+        statusCodes=[
+          [-1, -2, -4],   //0
+          [1, -2, -4],    //1
+          [-1, 2, -4],    //2
+          [1, 2, -4],     //3
+          [-1, -2, 4],    //4
+          [1, -2, 4],     //5
+          [-1, 2, 4],     //6
+          [1, 2, 4]       //7
+        ] 
+     retVal = statusCodes[status][door]
+    return retVal
+}
+
 void childClose(String dni){
     if(debugEnable) log.debug "Attempting to close door ${dni}"
     def cd = getChildDevice(dni)
-    def door = dni[-1].toInteger()
+    def door = cd.name
     close(door)
-    //based on timing, one of my doors averages about 25-30 seconds to close. Tailwind beeps for a while, then the door closes.
-    runIn(25000,poll)
 }
 
 void childOpen(String dni){
@@ -159,17 +183,15 @@ void childOpen(String dni){
     def cd = getChildDevice(dni)
     def door = dni[-1].toInteger()
     open(door)
-    //depends on the door sensor placement, most doors are near instant
-    runIn(3000, poll)
 }
 
 void setChildStatus(dNum, status){
-    def cd = getChildDevice("${cName} : Door ${dNum}")        
+    def cd = getChildDevice("${cName}:${dNum}")        
     if(cd.latestValue("door") == status){
-        if(debugEnable) log.debug "Child device ${cName} : Door ${dNum} Matches real door"
+        if(debugEnable) log.debug "Child device ${cName}:${dNum} Matches real door"
     }
     else{
-        if(debugEnable) log.debug "Child device ${cName} : Door ${dNum} DOESN'T match real door, update child to match"
+        if(debugEnable) log.debug "Child device ${cName}:${dNum} DOESN'T match real door, update child to match"
         cd.sendEvent(name:"door", value:"${status}")
     }    
 }
