@@ -1,14 +1,13 @@
-
 preferences {
     input name: "IP", type: "string", title: "Tailwind Controller IP", required: "True"
-    input name: "cName", type: "string", title: "Tailwind Controller Name", required: "True"
+    input name: "cName", type: "string", title: "Tailwind Controller Name", required: "True",  description: '<em>Changes the name for the controller displayed in dashboards, DOES affect children unique deviceNetworkId.  Changing this will re-create the children devices.</em>'
     //input name: "token", type: "password", title: "Access Token", required: "True"
     input name: "doorCount", type: "number", title: "Number of Doors", required: "True", range: "0..3", defaultValue : 1
-    input name: "debugEnable", type: "bool", title: "Enable debug logging?", required: "True"
     input name: "interval", type: "number", title: "Polling interval (seconds)", required: "True", range: "1..59", defaultValue : 30
-    input name: "d1Name", type: "string", title: "Door 1 Name", required: "false", defaultValue : "Door 1"
-    input name: "d2Name", type: "string", title: "Door 2 Name", required: "false", defaultValue : "Door 2"
-    input name: "d3Name", type: "string", title: "Door 3 Name", required: "false", defaultValue : "Door 3"
+    input name: "debugEnable", type: "bool", title: "Enable debug logging?", defaultValue: true,  description: '<em>for 2 hours</em>'
+    if(doorCount > 0){input name: "d1Name", type: "string", title: "Door 1 Name", required: "false", defaultValue : "Door 1",  description: '<em>Changes the name for Door 1 displayed in dashboards, does not affect children unique deviceNetworkId.  Changing this will have no effect on the children devices being re-created.</em>'}
+    if(doorCount > 1){input name: "d2Name", type: "string", title: "Door 2 Name", required: "false", defaultValue : "Door 2",  description: '<em>Changes the name for Door 1 displayed in dashboards, does not affect children unique deviceNetworkId.  Changing this will have no effect on the children devices being re-created.</em>'}
+    if(doorCount == 3){input name: "d3Name", type: "string", title: "Door 3 Name", required: "false", defaultValue : "Door 3",  description: '<em>Changes the name for Door 1 displayed in dashboards, does not affect children unique deviceNetworkId.  Changing this will have no effect on the children devices being re-created.</em>'}
 }
 
 metadata {
@@ -40,6 +39,8 @@ def uninstalled() {
 def updated() {    
     log.info "Clearing schedule for Polling interval"
     unschedule()
+    //disable logging after 2 hours
+    if (debugEnable) runIn(7200,disableDebug)
     init()
 }
 
@@ -48,6 +49,11 @@ def init() {
     addChildren()
     schedule("0/${settings.interval} * * ? * * *", poll)
     poll()    
+}
+
+def disableDebug(String level) {
+  log.info "Timed elapsed, disabling debug logging"
+  device.updateSetting("debugEnable", [value: 'false', type: 'bool'])
 }
 
 void addChildren(){
