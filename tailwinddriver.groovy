@@ -18,9 +18,8 @@ metadata {
     ) {
         capability "Polling"
         attribute "Status", "string"
-        command "childOpen", ["string"]
-        command "childClose", ["string"]
-        command "childRefresh", ["string"]
+        command "childOpen", ["integer"]
+        command "childClose", ["integer"]
     }
 }
 
@@ -47,6 +46,7 @@ def updated() {
 def init() {
     log.info "Scheduling Polling interval for ${settings.interval} second(s)..."    
     addChildren()
+    sendEvent(name: "Status", value: 0)
     schedule("0/${settings.interval} * * ? * * *", poll)
     poll()    
 }
@@ -76,7 +76,7 @@ void addChildren(){
         if(debugEnable) log.debug ("${cName}:${d}")
         def cd = getChildDevice("${cName}:${d}")
         if(!cd) {
-            cd = addChildDevice("dabtailwind-gd","Tailwind Garage Door Child Device","${cName}:${d}", [label: "${cName} : ${dn}", name: "${d}", isComponent: true])
+            cd = addChildDevice("dabtailwind-gd","Tailwind Garage Door Child Device","${cName}:${d}", [label: "${cName} : ${dn}", name: "${d}", isComponent: true])         
             if(cd && debugEnable){
                 log.debug "Child device ${cd.displayName} was created" 
 
@@ -102,93 +102,116 @@ void addChildren(){
 }
 
 def poll() {
-    checkStatus()   
+    def s = checkStatus()
+    def old = device.currentValue("Status").toInteger()
+    //only set status if it changed.
+    if(s != old)
+    {
+        log.debug "Status changed from ${old} to ${s}"
+        setDoorStatus(s)
+    }
 }
 
-def open(Integer doorNumber) {
-    def postParams = [uri: "http://${IP}/cmd", body : "${doorNumber}"]     
-    httpPost(postParams) { resp ->
-        if(debugEnable) log.debug "Open Response: ${resp.data}"     
-        if ("${resp.data}" == "${doorNumber}" )
+def openClose(String command, Integer doorNumber){
+    def desiredStatus = "closed"
+    def Integer cmd = doorNumber * -1
+    if(command == "open")
+    {
+        desiredStatus = "open"
+        cmd = doorNumber
+    }
+    if(debugEnable) log.debug "Attempting to ${command} door ${doorNumber}"
+    def postParams = [uri: "http://${IP}/cmd", body : "${cmd}"]     
+    log.debug postParams
+    httpPost(postParams) { def resp ->
+        if(debugEnable) log.debug "${command} Response: ${resp.data}"     
+        if ("${resp.data}" == "${cmd}" )
         {
-            Integer s=-2 //checkStatus()
-            
-            while (getDoorOpenClose(getDoorStatus(s,doorNumber)) != "open"){
-                if(debugEnable) log.debug "Current status ${getDoorOpenClose(getDoorStatus(s,doorNumber))}"
-                s = checkStatus()
-                if(debugEnable) log.debug "Current status ${getDoorOpenClose(getDoorStatus(s,doorNumber))}"
-                pauseExecution(1000)
-            }     
+            //schedule to run the refresh for rapid updates on dashboard
+            runIn(1, "postActionRefresh", [data:["desiredStatus":"${desiredStatus}","doorNumber":doorNumber]])
         }
     }
+}
+
+void postActionRefresh(data){    
+    String desiredStatus=data.get("desiredStatus")
+    Integer doorNumber = data.get("doorNumber")
+    if(debugEnable) log.debug "Door #${doorNumber} Desired Status: ${desiredStatus} Current status: ${doorCheck(doorNumber)}"
+    def Integer i = 0 //count seconds elapsed after door command
+    while ( doorCheck(doorNumber) != desiredStatus){                
+        checkStatus()
+        if(debugEnable) log.debug "Door #${doorNumber} Desired Status: ${desiredStatus} Current status: ${doorCheck(doorNumber)}"
+        pauseExecution(5000)
+        //break out of loop after a period, infinite loops are bad
+        i += 1
+        if(i >= 60)
+        {
+            if(debugEnable) log.debug "60 seconds is too long for a door, probably something went wrong physically (blocked sensor, stuck/etc)."
+            break
+        }
+    }
+    if(debugEnable) log.debug "Door #${doorNumber} Desired Status: ${desiredStatus} Current status: ${doorCheck(doorNumber)}"          
+}
+
+def doorCheck(Integer doorNumber){
+    retval =getDoorOpenClose(getDoorStatus(device.currentValue("Status").toInteger(),doorNumber))
+    if (debugEnabled) log.debug "Door ${doorNumber} is ${retval}"
+    return retval
+}
+def childOpen(Integer doorNumber){
+    open(doorNumber)
+}
+def childClose(Integer doorNumber){
+    close(doorNumber)
+}
+def open(Integer doorNumber) {
+    openClose("open",doorNumber)
 }
 
 def close(Integer doorNumber) {   
-    def postParams = [uri: "http://${IP}/cmd", body : "-${doorNumber}"]     
-    httpPost(postParams) { resp ->
-        if(debugEnable) log.debug "Close Response: ${resp.data}"
-        if ("${resp.data}" == "-${doorNumber}" )
-        {   
-            Integer s=2 //checkStatus()
-            
-            while (getDoorOpenClose(getDoorStatus(s,doorNumber)) != "closed"){
-                if(debugEnable) log.debug "Current status ${getDoorOpenClose(getDoorStatus(s,doorNumber))}"
-                s = checkStatus()
-                if(debugEnable) log.debug "Current status ${getDoorOpenClose(getDoorStatus(s,doorNumber))}"
-                pauseExecution(1000)
-            }            
-        }
-    }
+   openClose("close",doorNumber)
 }
 
 def checkStatus() {
     httpGet(uri: "http://${ IP }/status")
     {resp ->           
-        if(debugEnable) log.debug "Door Status: ${resp.data}"
-        doorStatus(resp.data.toInteger())
+        if(debugEnable) log.debug "POST Door Status: ${resp.data}"        
         return resp.data.toInteger()
 	}
     
 }
 
-void doorStatus(status){
-    if(debugEnable) log.debug "Setting Attributes"
+void setDoorStatus(status){
+    if(debugEnable) log.debug "Setting Door Status attribute to ${status}"
     sendEvent(name: "Status", value: status)
     for(int i =0; i < doorCount.toInteger(); i++){
-        getDoorStatus(status,i)
-        dStatus = getDoorOpenClose(retVal)
-        if(debugEnable) log.debug "Real door ${i+1} is ${retVal} ${dStatus}"        
+        ds = getDoorStatus(status,i)
+        dStatus = getDoorOpenClose(ds)
+        if(debugEnable) log.debug "Real door ${i+1} is ${ds} ${dStatus}"      
         setChildStatus(i+1, dStatus)
     }   
 }
 
 def getDoorStatus(Integer status, Integer door){
         statusCodes=[
-          [-1, -2, -4],   //0
-          [1, -2, -4],    //1
-          [-1, 2, -4],    //2
-          [1, 2, -4],     //3
-          [-1, -2, 4],    //4
-          [1, -2, 4],     //5
-          [-1, 2, 4],     //6
-          [1, 2, 4]       //7
+          [-1, -2, -4],   
+          [1, -2, -4],    
+          [-1, 2, -4],    
+          [1, 2, -4],     
+          [-1, -2, 4],    
+          [1, -2, 4],     
+          [-1, 2, 4],     
+          [1, 2, 4],
+          [-1, -2, -3],   
+          [1, -2, -3],    
+          [-1, 2, -3],    
+          [1, 2, -3],     
+          [-1, -2, 3],    
+          [1, -2, 3],     
+          [-1, 2, 3],     
+          [1, 2, 3]
         ] 
-     retVal = statusCodes[status][door]
-    return retVal
-}
-
-void childClose(String dni){
-    if(debugEnable) log.debug "Attempting to close door ${dni}"
-    def cd = getChildDevice(dni)
-    def door = cd.name
-    close(door)
-}
-
-void childOpen(String dni){
-    if(debugEnable) log.debug "Attempting to open door ${dni}"
-    def cd = getChildDevice(dni)
-    def door = dni[-1].toInteger()
-    open(door)
+    return statusCodes[status][door]
 }
 
 void setChildStatus(dNum, status){
@@ -202,7 +225,7 @@ void setChildStatus(dNum, status){
     }    
 }
 
-def getDoorOpenClose(curStatus)
+def getDoorOpenClose(Integer curStatus)
 {
     if(curStatus < 0){
         return "closed"
