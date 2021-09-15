@@ -7,8 +7,8 @@ preferences {
     input name: "garageDoorTimeout", type: "number", title: "Door Open/Close timeout", required: "True", defaultValue : 60, description: '<em> Seconds. How long should faster polling be run before giving up on waiting to check and see if the door status has changed after issuing a command.</em>'
     input name: "debugEnable", type: "bool", title: "Enable debug logging?", defaultValue: true,  description: '<em>for 2 hours</em>'
     if(doorCount > 0){input name: "d1Name", type: "string", title: "Door 1 Name", required: "false", defaultValue : "Door 1",  description: '<em>Changes the name for Door 1 displayed in dashboards, does not affect children unique deviceNetworkId.  Changing this will have no effect on the children devices being re-created.</em>'}
-    if(doorCount > 1){input name: "d2Name", type: "string", title: "Door 2 Name", required: "false", defaultValue : "Door 2",  description: '<em>Changes the name for Door 1 displayed in dashboards, does not affect children unique deviceNetworkId.  Changing this will have no effect on the children devices being re-created.</em>'}
-    if(doorCount == 3){input name: "d3Name", type: "string", title: "Door 3 Name", required: "false", defaultValue : "Door 3",  description: '<em>Changes the name for Door 1 displayed in dashboards, does not affect children unique deviceNetworkId.  Changing this will have no effect on the children devices being re-created.</em>'}
+    if(doorCount > 1){input name: "d2Name", type: "string", title: "Door 2 Name", required: "false", defaultValue : "Door 2",  description: '<em>Changes the name for Door 2 displayed in dashboards, does not affect children unique deviceNetworkId.  Changing this will have no effect on the children devices being re-created.</em>'}
+    if(doorCount == 3){input name: "d3Name", type: "string", title: "Door 3 Name", required: "false", defaultValue : "Door 3",  description: '<em>Changes the name for Door 3 displayed in dashboards, does not affect children unique deviceNetworkId.  Changing this will have no effect on the children devices being re-created.</em>'}
 }
 
 metadata {
@@ -139,8 +139,9 @@ def openClose(String command, Integer doorNumber){
     }
 }
 
-void postActionRefresh(data){ 
-    log.debug "Now polling every 2 seconds for door to open/close."
+void postActionRefresh(data){
+    def Integer loopSpeed = 2
+    log.debug "Now polling every ${loopSpeed} seconds for door to open/close."
     String desiredStatus = data.get("desiredStatus")
     def Integer doorStatus = checkStatus()
     Integer doorNumber = data.get("doorNumber").toInteger()
@@ -150,9 +151,9 @@ void postActionRefresh(data){
     while ( doorCheck(doorNumber, doorStatus) != desiredStatus){                
         doorStatus = checkStatus()
         if(debugEnable) log.debug "Door #${doorNumber} Desired Status: ${desiredStatus} Current status: ${doorCheck(doorNumber,doorStatus)}"
-        pauseExecution(2000)
+        pauseExecution(loopSpeed * 1000)
         //break out of loop after a period, infinite loops are bad
-        i += 2
+        i += loopSpeed
         if(i >= garageDoorTimeout)
         {
             if(debugEnable) log.debug "${garageDoorTimeout} seconds is too long for a door, probably something went wrong physically (blocked sensor, stuck/etc)."
