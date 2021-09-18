@@ -12,10 +12,11 @@ metadata {
 }
 
 void close(){
-     parent.childClose(device.deviceNetworkId)   
+    if(debugEnable) log.debug "Child says Door #${device.deviceNetworkId[-1].toInteger()} to Close"
+    parent.close(device.deviceNetworkId[-1].toInteger())   
 }
 
 void open(){
-     parent.childOpen(device.deviceNetworkId)   
+    if(debugEnable) log.debug "Child says Door #${device.deviceNetworkId[-1].toInteger()} to Open"
+    parent.open(device.deviceNetworkId[-1].toInteger())   
 }
-
