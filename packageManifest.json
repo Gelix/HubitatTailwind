@@ -6,14 +6,14 @@
   "dateReleased": "2021-09-18",
   "drivers": [
     {
-      "id": "1f404c7f-852a-409d-8a42-96caec14604b",
+      "id": "589f710d-46f7-45ce-8f82-5b99c41eecaf",
       "name": "Tailwind Garage Door Child Device",
       "namespace": "dabtailwind-gd",
       "location": "https://raw.githubusercontent.com/Gelix/HubitatTailwind/main/tailwinddriver-child.groovy",
       "required": true
     },
     {
-      "id": "3d93b7ec-51d9-4fef-ad49-755d3097ed5d",
+      "id": "2d065d15-16dc-4380-8d7a-e86438a81c7e",
       "name": "Tailwind Garage Door",
       "namespace": "dabtailwind-gd",
       "location": "https://raw.githubusercontent.com/Gelix/HubitatTailwind/main/tailwinddriver.groovy",
