@@ -8,4 +8,4 @@ Installation instructions:
 2. Create a new driver for the child device using https://raw.githubusercontent.com/Gelix/HubitatTailwind/main/tailwinddriver-child.groovy
 3. Create a virtual device on Hubitat with Tailwind Garage Door as the device type
 4. Set the Tailwind Controller IP of your controller and the number of doors it controls, along with the Controller Name.
-5. Start using. You can assign the children devices (named <ControllerName : DoorName> to a dashboard to control them directly, or use in rules.
+5. Start using. You can assign the children devices (named ControllerName : DoorName) to a dashboard to control them directly, or use in rules.
