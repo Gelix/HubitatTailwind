@@ -1,19 +1,19 @@
 {
   "packageName": "Hubitat Tailwind Garage Door Controller",
   "author": "dbadge",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minimumHEVersion": "2.2.8",
-  "dateReleased": "2021-09-18",
+  "dateReleased": "2021-09-24",
   "drivers": [
     {
-      "id": "cd9d0e7b-5bf4-48f3-a610-81aeade4cf7f",
+      "id": "bf920c02-4d6e-4569-b230-e707c1d8a5aa",
       "name": "Tailwind Garage Door Child Device",
       "namespace": "dabtailwind-gd",
       "location": "https://raw.githubusercontent.com/Gelix/HubitatTailwind/main/tailwinddriver-child.groovy",
       "required": true
     },
     {
-      "id": "dcb5e497-003c-4bed-be27-513f30af8874",
+      "id": "edab7bc3-3833-4751-b40a-fd08c6559391",
       "name": "Tailwind Garage Door",
       "namespace": "dabtailwind-gd",
       "location": "https://raw.githubusercontent.com/Gelix/HubitatTailwind/main/tailwinddriver.groovy",
