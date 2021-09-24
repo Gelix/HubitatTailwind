@@ -84,7 +84,7 @@ void addChildren(){
         if(!cd) {
             cd = addChildDevice("dabtailwind-gd","Tailwind Garage Door Child Device","${cName}:${d}", [label: "${cName} : ${dn}", name: "${d}", isComponent: true])         
             if(cd && debugEnable){
-                log.debug "Child device ${cd.displayName} was created" 
+                  if(debugEnable) log.debug "Child device ${cd.displayName} was created" 
 
             }else if (!cd){
                 log.error "Could not create child device"
@@ -93,12 +93,12 @@ void addChildren(){
         if(debugEnable) log.debug "deviceNetworkId ${cd.deviceNetworkId}=${cName}:${d} name ${cd.name}=${d} label ${cd.label}=${cName} : ${dn}"        
         if(cd.label != "${cName} : ${dn}")
         {
-            log.debug "Correcting child label mismatch ${cd.label}=${cName} : ${dn}"
+              if(debugEnable) log.debug "Correcting child label mismatch ${cd.label}=${cName} : ${dn}"
             cd.label = "${cName} : ${dn}"
         }
         if(cd.name != "${d}")
         {
-            log.debug "Correcting child name mismatch ${cd.name}=${d}"
+              if(debugEnable) log.debug "Correcting child name mismatch ${cd.name}=${d}"
             cd.name = "${d}"
         }
     }
@@ -132,7 +132,7 @@ def openClose(String command, Integer doorNumber){
         if(debugEnable) log.debug "${command} Response (should match ${cmd}): ${resp.data}"     
         if ("${resp.data}" == "${cmd}" )
         {
-            log.debug "in 1 second, start polling every 5 seconds for door to open/close."
+              if(debugEnable) log.debug "in 1 second, start polling every 5 seconds for door to open/close."
             //schedule to run the refresh for rapid updates on dashboard
             runIn(1, "postActionRefresh", [data:["desiredStatus":"${desiredStatus}","doorNumber":doorNumber]])
         }
@@ -141,7 +141,7 @@ def openClose(String command, Integer doorNumber){
 
 void postActionRefresh(data){
     def Integer loopSpeed = 2
-    log.debug "Now polling every ${loopSpeed} seconds for door to open/close."
+    if(debugEnable) log.debug "Now polling every ${loopSpeed} seconds for door to open/close."
     String desiredStatus = data.get("desiredStatus")
     def Integer doorStatus = checkStatus()
     Integer doorNumber = data.get("doorNumber").toInteger()
@@ -162,7 +162,7 @@ void postActionRefresh(data){
     }
     if (doorCheck(doorNumber, doorStatus) == desiredStatus){setDoorStatus(doorStatus)}
     
-    if(debugEnable) log.debug "Door #${doorNumber} Desired Status: ${desiredStatus} Current status: ${doorCheck(doorNumber,doorStatus)}"          
+    log.info "Door #${doorNumber} Desired Status: ${desiredStatus} Current status: ${doorCheck(doorNumber,doorStatus)}"          
 }
 
 def doorCheck(Integer doorNumber, Integer doorStatus){
