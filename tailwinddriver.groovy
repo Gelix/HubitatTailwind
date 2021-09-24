@@ -111,7 +111,7 @@ def poll() {
     //only set status if it changed. a lot less event spam this way.
     if(s != old)
     {
-        log.debug "Status changed from ${old} to ${s}"
+        if(debugEnable) log.debug "Status changed from ${old} to ${s}"
         setDoorStatus(s)
     }
 }
