@@ -36,6 +36,22 @@
       "location": "https://raw.githubusercontent.com/Gelix/HubitatTailwind/main/tailwinddriver.groovy",
       "required": true,
       "version": "1.0.1"
+    },
+    {
+      "id": "05004575-ece9-41f4-85f5-70a48a2ca08e",
+      "name": "Tailwind Garage Door Child Device",
+      "namespace": "dabtailwind-gd",
+      "location": "https://raw.githubusercontent.com/Gelix/HubitatTailwind/main/tailwinddriver-child.groovy",
+      "required": true,
+      "version": "1.0.0"
+    },
+    {
+      "id": "98a5245c-42fd-4cb2-910b-dd6d83a67d42",
+      "name": "Tailwind Garage Door",
+      "namespace": "dabtailwind-gd",
+      "location": "https://raw.githubusercontent.com/Gelix/HubitatTailwind/main/tailwinddriver.groovy",
+      "required": true,
+      "version": "1.0.1"
     }
   ],
   "releaseNotes": "Fixed typo in manifest script that prevented inclusion of the main driver"
