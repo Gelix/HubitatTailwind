@@ -9,3 +9,6 @@ Installation instructions:
 3. Create a virtual device on Hubitat with Tailwind Garage Door as the device type
 4. Set the Tailwind Controller IP of your controller and the number of doors it controls, along with the Controller Name.
 5. Start using. You can assign the children devices (named ControllerName : DoorName) to a dashboard to control them directly, or use in rules.
+
+
+If you have duplicate drivers in the hubitat, you were probably using a version prior to 1.0.3 which lacked a hard coded ID.  Delete the drivers that aren't in use and use HPM to "Match up" with an existing driver, then use HPM to update the package.  
