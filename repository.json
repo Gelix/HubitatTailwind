@@ -3,7 +3,7 @@
   "gitHubUrl": "https://github.com/Gelix/HubitatTailwind",
   "packages": [
     {
-      "id": "3bc1b50e-607a-4eb4-bb6a-1892df9ee5aa",
+      "id": "cc812fce-c5d7-4621-89ec-3ac51e327560",
       "name": "Hubitat Tailwind Garage Door Controller",
       "category": "Control",
       "location": "https://raw.githubusercontent.com/Gelix/HubitatTailwind/main/packageManifest.json",
