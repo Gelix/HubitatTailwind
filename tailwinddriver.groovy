@@ -3,7 +3,8 @@ preferences {
     input name: "cName", type: "string", title: "Tailwind Controller Name", required: "True",  description: '<em>Changes the name for the controller displayed in dashboards, DOES affect children unique deviceNetworkId.  Changing this will re-create the children devices.</em>'
     //input name: "token", type: "password", title: "Access Token", required: "True"
     input name: "doorCount", type: "number", title: "Number of Doors", required: "True", range: "0..3", defaultValue : 1
-    input name: "interval", type: "enum", title: "Polling interval", required: "True", options: ["1", "5", "10", "15", "30"], defaultValue : 1, description: '<em> Minutes, if you want it more frequently, use Rules.</em>'
+    input name: "interval", type: "enum", title: "Polling interval", required: "True", options: ["1", "5", "10", "15", "30"], defaultValue : 1, description: '<em> Main polling interval for when nothing is happening, this is in Minutes so as not to hog resources on the Hub. If you want it more frequently, use Rules.</em>'
+    input name: "fastPollInterval", type: "number", title: "Fast Polling interval", required: "True", range: "1-30", defaultValue : 2, description: '<em>This polling interval is used when an action has been performed (such as open/close) and will update the status of the door triggered.</em>'
     input name: "garageDoorTimeout", type: "number", title: "Door Open/Close timeout", required: "True", defaultValue : 60, description: '<em> Seconds. How long should faster polling be run before giving up on waiting to check and see if the door status has changed after issuing a command.</em>'
     input name: "debugEnable", type: "bool", title: "Enable debug logging?", defaultValue: true,  description: '<em>for 2 hours</em>'
     if(doorCount > 0){input name: "d1Name", type: "string", title: "Door 1 Name", required: "false", defaultValue : "Door 1",  description: '<em>Changes the name for Door 1 displayed in dashboards, does not affect children unique deviceNetworkId.  Changing this will have no effect on the children devices being re-created.</em>'}
@@ -125,14 +126,14 @@ def openClose(String command, Integer doorNumber){
         desiredStatus = "open"
         cmd = cmd * -1
     }
-    if(debugEnable) log.debug "Attempting to ${command} door ${doorNumber}"
+    log.info "Attempting to ${command} door ${doorNumber}"
     def postParams = [uri: "http://${IP}/cmd", body : "${cmd}"]     
     if(debugEnable) log.debug postParams
     httpPost(postParams) { def resp ->
         if(debugEnable) log.debug "${command} Response (should match ${cmd}): ${resp.data}"     
         if ("${resp.data}" == "${cmd}" )
         {
-              if(debugEnable) log.debug "in 1 second, start polling every 5 seconds for door to open/close."
+            if(debugEnable) log.debug "in 1 second, start polling every ${fastPollInterval} seconds for door to ${desiredStatus}."
             //schedule to run the refresh for rapid updates on dashboard
             runIn(1, "postActionRefresh", [data:["desiredStatus":"${desiredStatus}","doorNumber":doorNumber]])
         }
@@ -140,11 +141,11 @@ def openClose(String command, Integer doorNumber){
 }
 
 void postActionRefresh(data){
-    def Integer loopSpeed = 2
-    if(debugEnable) log.debug "Now polling every ${loopSpeed} seconds for door to open/close."
+    def Integer loopSpeed = fastPollInterval
     String desiredStatus = data.get("desiredStatus")
     def Integer doorStatus = checkStatus()
     Integer doorNumber = data.get("doorNumber").toInteger()
+    if(debugEnable) log.debug "Now polling every ${loopSpeed} seconds for door to ${desiredStatus}."
     if(debugEnable) log.debug "${doorStatus} Door #${doorNumber} Desired Status: ${desiredStatus} Current status: ${doorCheck(doorNumber,doorStatus)}"
     def Integer i = 0 //count seconds elapsed after door command
     
@@ -156,21 +157,27 @@ void postActionRefresh(data){
         i += loopSpeed
         if(i >= garageDoorTimeout)
         {
-            if(debugEnable) log.debug "${garageDoorTimeout} seconds is too long for a door, probably something went wrong physically (blocked sensor, stuck/etc)."
+            log.warn "${garageDoorTimeout} seconds is too long for a door, probably something went wrong physically (blocked sensor, stuck/etc)."
             break
         }
     }
-    if (doorCheck(doorNumber, doorStatus) == desiredStatus){setDoorStatus(doorStatus)}
+    if (doorCheck(doorNumber, doorStatus) == desiredStatus){
+        setDoorStatus(doorStatus)
+        log.info "Completed ${desiredStatus} Successfully on Door #${doorNumber} Desired Status: ${desiredStatus} Current status: ${doorCheck(doorNumber,doorStatus)}"          
+    }
+    else
+    {
+        log.warn "Failed to ${desiredStatus} on Door #${doorNumber} Desired Status: ${desiredStatus} Current status: ${doorCheck(doorNumber,doorStatus)}"
+    }
     
-    log.info "Door #${doorNumber} Desired Status: ${desiredStatus} Current status: ${doorCheck(doorNumber,doorStatus)}"          
+    
+    
+    
 }
 
 def doorCheck(Integer doorNumber, Integer doorStatus){
     checkNumber = doorNumber -1 //the statusCode is 0,1,2 so subtract 1 
-    r =getDoorOpenClose(getDoorStatus(doorStatus,checkNumber))
-    if(debugEnable) log.debug "trying to get open/close from ${doorStatus} ${checkNumber}"
-    if(debugEnable) log.debug "getDoorStatus returned ${getDoorStatus(doorStatus,checkNumber)}"
-    if(debugEnable) log.debug "Door ${doorNumber} is ${r}"
+    r = getDoorOpenClose(getDoorStatus(doorStatus,checkNumber))
     return r
 }
 
@@ -212,14 +219,14 @@ void setDoorStatus(status){
 
 def getDoorStatus(Integer status, Integer door){
         statusCodes=[
-          [-1, -2, -4],   
-          [1, -2, -4],    
-          [-1, 2, -4],    
-          [1, 2, -4],     
-          [-1, -2, 4],    
-          [1, -2, 4],     
-          [-1, 2, 4],     
-          [1, 2, 4]
+          [-1, -2, -4],   //[closed,closed,closed]  
+          [1, -2, -4],    //[open,closed,closed] 
+          [-1, 2, -4],    //[closed,open,closed] 
+          [1, 2, -4],     //[open,open,closed] 
+          [-1, -2, 4],    //[closed,closed,open] 
+          [1, -2, 4],     //[open,closed,open] 
+          [-1, 2, 4],     //[closed,open,open] 
+          [1, 2, 4]       //[open,open,open] 
         ] 
     return statusCodes[status][door]
 }
