@@ -5,6 +5,7 @@ metadata {
 		author: "dbadge"		
     ) {
         capability "GarageDoorControl"
+        capability "Actuator"
         attribute "Status", "string"
         command "open"
         command "close"
