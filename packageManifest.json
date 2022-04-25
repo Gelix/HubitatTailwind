@@ -1,9 +1,9 @@
 {
   "packageName": "Hubitat Tailwind Garage Door Controller",
   "author": "dbadge",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "minimumHEVersion": "2.2.8",
-  "dateReleased": "2021-4-8",
+  "dateReleased": "2021-4-25",
   "drivers": [
     {
       "id": "05004575-ece9-41f4-85f5-70a48a2ca08e",
@@ -19,8 +19,8 @@
       "namespace": "dabtailwind-gd",
       "location": "https://raw.githubusercontent.com/Gelix/HubitatTailwind/main/tailwinddriver.groovy",
       "required": true,
-      "version": "1.0.2"
+      "version": "1.0.3"
     }
   ],
-  "releaseNotes": "Add actuator capability to child device"
+  "releaseNotes": "Official 9.95 firmware compability, incompatible with older BETA firmware."
 }

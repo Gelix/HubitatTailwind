@@ -7,7 +7,7 @@
       "name": "Hubitat Tailwind Garage Door Controller",
       "category": "Control",
       "location": "https://raw.githubusercontent.com/Gelix/HubitatTailwind/main/packageManifest.json",
-      "description": "A device driver for Tailwind IQ3 Garage Door controller that enables local API based control on the Hubitat Elevation.  This requires beta firmware version 9.87 or higher.",
+      "description": "A device driver for Tailwind IQ3 Garage Door controller that enables local API based control on the Hubitat Elevation.  This requires official firmware version 9.95 or higher.",
       "tags": [
         "Garage Doors"
       ]
