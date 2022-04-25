@@ -1,9 +1,9 @@
 preferences {
     input name: "IP", type: "string", title: "Tailwind Controller IP", required: "True"
     input name: "cName", type: "string", title: "Tailwind Controller Name", required: "True",  description: '<em>Changes the name for the controller displayed in dashboards, DOES affect children unique deviceNetworkId.  Changing this will re-create the children devices.</em>'
-    //input name: "token", type: "password", title: "Access Token", required: "True"
+    input name: "token", type: "password", title: "Local Command Key", required: "True", description: 'login with your tailwind app credentials to https://web.gotailwind.com/, go to Local Control Key, create a new local command key.  This is per-account and is the same for each device you may have on your account.'
     input name: "doorCount", type: "number", title: "Number of Doors", required: "True", range: "0..3", defaultValue : 1
-    input name: "interval", type: "enum", title: "Polling interval", required: "True", options: ["1", "5", "10", "15", "30"], defaultValue : 1, description: '<em> Main polling interval for when nothing is happening, this is in Minutes so as not to hog resources on the Hub. If you want it more frequently, use Rules.</em>'
+    input name: "interval", type: "enum", title: "Polling interval", required: "True", options: ["1", "5", "10", "15", "30"], defaultValue : 1, description: '<em> Main polling interval for when nothing is happening, this is in Minutes so as not to hog resources on the Hub. If you want it more frequently than 1 minute, you can use Rules.</em>'
     input name: "fastPollInterval", type: "number", title: "Fast Polling interval", required: "True", range: "1-30", defaultValue : 2, description: '<em>This polling interval is used when an action has been performed (such as open/close) and will update the status of the door triggered.</em>'
     input name: "garageDoorTimeout", type: "number", title: "Door Open/Close timeout", required: "True", defaultValue : 60, description: '<em> Seconds. How long should faster polling be run before giving up on waiting to check and see if the door status has changed after issuing a command.</em>'
     input name: "debugEnable", type: "bool", title: "Enable debug logging?", defaultValue: true,  description: '<em>for 2 hours</em>'
@@ -127,11 +127,11 @@ def openClose(String command, Integer doorNumber){
         cmd = cmd * -1
     }
     log.info "Attempting to ${command} door ${doorNumber}"
-    def postParams = [uri: "http://${IP}/cmd", body : "${cmd}"]     
+    def postParams = [uri: "http://${IP}/cmd", body : "${cmd}", headers: ['TOKEN' : "${token}"]]     
     if(debugEnable) log.debug postParams
     httpPost(postParams) { def resp ->
         if(debugEnable) log.debug "${command} Response (should match ${cmd}): ${resp.data}"     
-        if ("${resp.data}" == "${cmd}" )
+        if ("${resp.data}" != "${cmd}" )
         {
             if(debugEnable) log.debug "in 1 second, start polling every ${fastPollInterval} seconds for door to ${desiredStatus}."
             //schedule to run the refresh for rapid updates on dashboard
@@ -198,7 +198,8 @@ def close(Integer doorNumber) {
 }
 
 def checkStatus() {
-    httpGet(uri: "http://${ IP }/status")
+    def params = [uri : "http://${ IP }/status", headers: [ 'TOKEN' : "${token}"]]
+    httpGet(params)
     {resp ->           
         if(debugEnable) log.debug "POST Door Status: ${resp.data}"        
         return resp.data.toInteger()
@@ -247,7 +248,10 @@ def getDoorOpenClose(Integer curStatus)
     if(curStatus < 0){
         return "closed"
     }
-    else{
+    else if (curStatus > 0){
         return "open"
-    }    
+    } 
+    else {
+        return "unknown"
+    }
 }
