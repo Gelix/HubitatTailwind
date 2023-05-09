@@ -16,7 +16,8 @@ metadata {
     definition (
         name: "Tailwind Garage Door", 
 		namespace: "dabtailwind-gd", 
-		author: "dbadge"		
+		author: "dbadge",
+        importUrl: "https://raw.githubusercontent.com/Gelix/HubitatTailwind/main/tailwinddriver.groovy"
     ) {
         capability "Polling"
         attribute "Status", "string"
@@ -241,6 +242,9 @@ void setChildStatus(dNum, status){
         if(debugEnable) log.debug "Child device ${cName}:${dNum} DOESN'T match real door, update child to match"
         cd.sendEvent(name:"door", value:"${status}")
     }    
+    if (status ==~ /open|closed/ && cd.latestValue('contact') != status) {
+        cd.sendEvent(name:'contact', value:"${status}")
+    }
 }
 
 def getDoorOpenClose(Integer curStatus)

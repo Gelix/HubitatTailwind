@@ -1,7 +1,7 @@
 {
   "packageName": "Hubitat Tailwind Garage Door Controller",
   "author": "dbadge",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "minimumHEVersion": "2.2.8",
   "dateReleased": "2021-4-25",
   "drivers": [
@@ -11,7 +11,7 @@
       "namespace": "dabtailwind-gd",
       "location": "https://raw.githubusercontent.com/Gelix/HubitatTailwind/main/tailwinddriver-child.groovy",
       "required": true,
-      "version": "1.0.1"
+      "version": "1.0.2"
     },
     {
       "id": "98a5245c-42fd-4cb2-910b-dd6d83a67d42",
@@ -19,8 +19,8 @@
       "namespace": "dabtailwind-gd",
       "location": "https://raw.githubusercontent.com/Gelix/HubitatTailwind/main/tailwinddriver.groovy",
       "required": true,
-      "version": "1.0.3"
+      "version": "1.0.4"
     }
   ],
-  "releaseNotes": "Official 9.95 firmware compability, incompatible with older BETA firmware."
+  "releaseNotes": "Official 9.95 firmware compability, incompatible with older BETA firmware.\nAdds support for contact switch to child doors"
 }
