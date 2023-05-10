@@ -2,10 +2,13 @@ metadata {
     definition (
         name: "Tailwind Garage Door Child Device", 
 		namespace: "dabtailwind-gd", 
-		author: "dbadge"		
+		author: "dbadge",
+        importUrl: "https://raw.githubusercontent.com/Gelix/HubitatTailwind/main/tailwinddriver-child.groovy"
     ) {
         capability "GarageDoorControl"
         capability "Actuator"
+        capability "ContactSensor"
+        capability "Sensor"
         attribute "Status", "string"
         command "open"
         command "close"
